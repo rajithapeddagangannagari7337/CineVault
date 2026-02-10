@@ -1,0 +1,56 @@
+# ==========================================
+# CineVault Project Git Exclusions
+# ==========================================
+
+### Build Artifacts ###
+target/
+build/
+bin/
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
+### Spring Boot / Maven ###
+HELP.md
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+mvnw
+mvnw.cmd
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### VS Code ###
+.vscode/
+.history/
+*.code-workspace
+
+### Security & Environment (CRITICAL) ###
+# Do not push your Stripe keys or local DB paths to GitHub
+src/main/resources/application.properties
+
+# If you want to share the structure of your properties, 
+# create an 'application.properties.example' file instead.
+!src/main/resources/application.properties.example
+
+### OS Specific ###
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+### Logs ###
+*.log
+logs/
