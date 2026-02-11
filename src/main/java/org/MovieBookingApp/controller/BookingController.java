@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/bookings") // Base URL: localhost:8080/bookings
+@RequestMapping("/bookings")
 public class BookingController {
 
     @Autowired
