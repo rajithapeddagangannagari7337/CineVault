@@ -43,6 +43,8 @@ org.MovieBookingApp
 └── 📁 service         # Business Logic & Implementation
     └── 📁 serviceImpl # Concrete service logic
 
+```
+
 ## ⚡ Concurrency & Locking Mechanism
 
 In a high-traffic cinema system, two users may attempt to book the same seat at the same time.
