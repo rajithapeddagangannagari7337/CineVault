@@ -43,81 +43,93 @@ org.MovieBookingApp
 └── 📁 service         # Business Logic & Implementation
     └── 📁 serviceImpl # Concrete service logic
 
-##⚡ Concurrency & Locking Mechanism
-In a high-traffic cinema system, two users might try to book the same seat at the exact same millisecond.
+## ⚡ Concurrency & Locking Mechanism
 
-**CineVault's Solution:**
-Instead of traditional Row Locking used in SQL, we leverage MongoDB's Document-Level Atomicity.
+In a high-traffic cinema system, two users may attempt to book the same seat at the same time.
 
-T**he Operation:** We use mongoTemplate.findAndModify.
+### CineVault’s Solution
 
-**The Logic:** The query searches for the specific Show ID where the requested seatIds are NOT in the bookedSeatIds array ($nin).
+Instead of traditional row locking used in SQL databases, CineVault leverages **MongoDB’s document-level atomicity**.
 
-**The Update:** If the query matches (meaning seats are available), it pushes the new seats into the array in a single atomic step.
+### How It Works
 
-**Result:** If the query fails to find the document (meaning someone else just took those seats), the system throws a SeatNotAvailableException immediately.
+- **Operation:**  
+  `mongoTemplate.findAndModify`
+
+- **Logic:**  
+  The query searches for the specific `Show` ID where the requested `seatIds` are **not present** in the `bookedSeatIds` array (`$nin`).
+
+- **Update:**  
+  If the query matches (seats are available), the requested seats are pushed into the array in a **single atomic operation**.
+
+- **Result:**  
+  If the query fails, a `SeatNotAvailableException` is thrown immediately.
+
+---
 
 ## 💳 Payment Workflow (Stripe)
-The system uses a secure flow to handle payments without storing sensitive card details locally:
 
-**Tokenization:** The client (Frontend/Postman) sends card details to Stripe and receives a temporary token (e.g., tok_visa).
+The system follows a secure payment process without storing sensitive card details.
 
-**Request:** The token is sent to the CineVault backend via the /bookings endpoint.
+### Flow
 
-**Processing:** PaymentGatewayService charges the token in INR.
+1. **Tokenization**  
+   The client sends card details to Stripe and receives a temporary token (e.g., `tok_visa`).
 
-**Manual Rollback:** If the Stripe charge fails, the system automatically "pulls" (removes) the reserved seats back out of the Show document to make them available for others again.
+2. **Request**  
+   The token is sent to the CineVault backend via the `/bookings` endpoint.
 
-🧱 Entity Relationship OverviewEntityDescriptionTheaterRepresents a physical cinema location.ScreenA specific hall inside a theater.MovieMetadata about a film (Title, Genre, Rating).ShowsLinks a Movie to a Screen at a specific time. Tracks bookedSeatIds.UsersThe customer making bookings.BookingThe transaction linking a User, a Show, and specific Seats.PaymentRecords the Stripe transaction ID and status.
+3. **Processing**  
+   `PaymentGatewayService` charges the token in INR.
+
+4. **Manual Rollback**  
+   If the Stripe charge fails, the system removes the reserved seats from the `Show` document, making them available again.
+
+---
+
+## 🧱 Entity Relationship Overview
+
+| Entity   | Description |
+|--------|-------------|
+| Theater | Physical cinema location |
+| Screen  | A specific hall inside a theater |
+| Movie   | Movie metadata (title, genre, rating, duration) |
+| Show    | Links a movie to a screen at a specific time and tracks booked seats |
+| User    | Customer making bookings |
+| Booking | Transaction linking a user, show, and seats |
+| Payment | Records Stripe transaction ID and status |
+
+---
 
 ## 🛣️ API Endpoints
-* Theater & Screen
-**POST /theaters/add:** Register a new cinema location.
 
-**POST /screens/add:** Add a screen to a theater with total seat capacity.
+### 🎭 Theater & Screen
 
-* Movie & Show
-**POST /movies/add:** Add a movie (Title, Genre, Duration, Rating).
+- **POST `/theaters/add`** – Register a new theater  
+- **POST `/screens/add`** – Add a screen to a theater  
 
-**POST /shows/add:** Schedule a movie on a screen at a specific time.
+### 🎬 Movie & Show
 
-**GET /shows/{showId}:** Check show details and seat availability.
+- **POST `/movies/add`** – Add a movie  
+- **POST `/shows/add`** – Schedule a movie  
+- **GET `/shows/{showId}`** – Get show details and seat availability  
 
-* User Management
-**POST /users:** Register a new user.
+### 👤 User Management
 
-**GET /users/{email}:** Retrieve user details by email.
+- **POST `/users`** – Register a new user  
+- **GET `/users/{email}`** – Retrieve user details  
 
-* Booking (Core Logic)
-**POST /bookings:** Validates seats -> Atomic Reservation -> Stripe Charge -> Save Booking -> Save Payment.
+### 🎟️ Booking (Core Logic)
 
-**GET /bookings/{bookingId}:** Retrieve booking receipt and ticket details.
+- **POST `/bookings`** –  
+  Validate seats → Atomic reservation → Stripe charge → Save booking → Save payment
+
+- **GET `/bookings/{bookingId}`** – Retrieve booking details  
+
+---
 
 ## ⚙️ Setup & Installation
-**Clone the Repo:**
 
-**Bash**
+### Clone the Repository
+```bash
 git clone <repository-url>
-**Configure MongoDB:** Ensure MongoDB is running on localhost:27017 or update application.properties:
-
-## Properties
-**spring.data.mongodb.uri**=mongodb://localhost:27017/MovieBookingDB
-**Configure Stripe:**
-Add your Stripe Secret Key from the Stripe Dashboard:
-**stripe.api.key=**sk_test_your_key_here
-## Build and Run:
-
-Bash
-mvn clean install
-mvn spring-boot:run
-✅ Example Booking Request
-POST /bookings
-
-JSON
-{
-  "userId": "65b1c...",
-  "showId": "65b1d...",
-  "seatIds": ["A1", "A2"],
-  "paymentToken": "tok_visa"
-}
-Note: Use tok_visa for successful test payments and tok_chargeDeclined to test failures.
