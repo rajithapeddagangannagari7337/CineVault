@@ -1,93 +1,125 @@
-# movie-ticket-booking-system
+# 🎬 CineVault - Cinema Booking API
 
+CineVault is a high-performance, backend-only Cinema Booking System built with **Spring Boot 3**, **MongoDB**, and **Stripe**. It manages the complex lifecycle of movie ticketing, including theater management, automated seat tracking, and high-concurrency handling using MongoDB's atomic document operations.
 
+---
 
-## Getting started
+## 🚀 Key Features
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+* **Atomic Reservations:** Utilizes MongoDB's `findAndModify` to ensure zero double-bookings. Seat selection is handled as an atomic operation at the database level.
+* **Theater & Screen Management:** Configure theaters and screens with defined seat capacities.
+* **Movie & Show Scheduling:** Dynamic scheduling of movies across different screens and time slots.
+* **Secure Payments:** Full integration with the **Stripe API** for real-time, secure credit card transactions.
+* **Global Exception Handling:** Custom centralized error management for consistent API responses (404, 409, 402, 400 errors).
+* **DTO Pattern:** Clean separation of internal entities and external API responses using **ModelMapper** to prevent data leakage.
+* **Automated Validation:** Robust input validation using Jakarta Bean Validation (`@Valid`, `@NotBlank`, `@Email`, etc.).
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+---
 
-## Add your files
+## 🛠️ Tech Stack
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+* **Language:** Java 17+
+* **Framework:** Spring Boot 3.x
+* **Database:** MongoDB (NoSQL)
+* **Payment Gateway:** Stripe API
+* **Object Mapping:** ModelMapper
+* **Build Tool:** Maven
+* **Lombok:** To reduce boilerplate code (Getters/Setters).
 
-```
-cd existing_repo
-git remote add origin https://gitlab.com/dmanoranjan090/movie-ticket-booking-system.git
-git branch -M main
-git push -uf origin main
-```
+---
 
-## Integrate with your tools
+## 📂 Project Structure
 
-* [Set up project integrations](https://gitlab.com/dmanoranjan090/movie-ticket-booking-system/-/settings/integrations)
+```text
+org.MovieBookingApp
+├── 📁 controller      # REST API Endpoints (Booking, Movie, User, etc.)
+├── 📁 dto             # Data Transfer Objects
+│   ├── 📁 requestDto  # Data entering the API
+│   └── 📁 responseDto # Data leaving the API
+├── 📁 entities        # MongoDB @Document models
+├── 📁 enums           # BookingStatus, PaymentMethod, etc.
+├── 📁 exceptions      # Global Exception Handler & Custom Exceptions
+├── 📁 repository      # MongoRepository Interfaces
+└── 📁 service         # Business Logic & Implementation
+    └── 📁 serviceImpl # Concrete service logic
 
-## Collaborate with your team
+⚡ Concurrency & Locking Mechanism
+In a high-traffic cinema system, two users might try to book the same seat at the exact same millisecond.
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+CineVault's Solution:
+Instead of traditional Row Locking used in SQL, we leverage MongoDB's Document-Level Atomicity.
 
-## Test and Deploy
+The Operation: We use mongoTemplate.findAndModify.
 
-Use the built-in continuous integration in GitLab.
+The Logic: The query searches for the specific Show ID where the requested seatIds are NOT in the bookedSeatIds array ($nin).
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+The Update: If the query matches (meaning seats are available), it pushes the new seats into the array in a single atomic step.
 
-***
+Result: If the query fails to find the document (meaning someone else just took those seats), the system throws a SeatNotAvailableException immediately.
 
-# Editing this README
+💳 Payment Workflow (Stripe)
+The system uses a secure flow to handle payments without storing sensitive card details locally:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Tokenization: The client (Frontend/Postman) sends card details to Stripe and receives a temporary token (e.g., tok_visa).
 
-## Suggestions for a good README
+Request: The token is sent to the CineVault backend via the /bookings endpoint.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Processing: PaymentGatewayService charges the token in INR.
 
-## Name
-Choose a self-explaining name for your project.
+Manual Rollback: If the Stripe charge fails, the system automatically "pulls" (removes) the reserved seats back out of the Show document to make them available for others again.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+🧱 Entity Relationship OverviewEntityDescriptionTheaterRepresents a physical cinema location.ScreenA specific hall inside a theater.MovieMetadata about a film (Title, Genre, Rating).ShowsLinks a Movie to a Screen at a specific time. Tracks bookedSeatIds.UsersThe customer making bookings.BookingThe transaction linking a User, a Show, and specific Seats.PaymentRecords the Stripe transaction ID and status.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+🛣️ API Endpoints
+1. Theater & Screen
+POST /theaters/add: Register a new cinema location.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+POST /screens/add: Add a screen to a theater with total seat capacity.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+2. Movie & Show
+POST /movies/add: Add a movie (Title, Genre, Duration, Rating).
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+POST /shows/add: Schedule a movie on a screen at a specific time.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+GET /shows/{showId}: Check show details and seat availability.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+3. User Management
+POST /users: Register a new user.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+GET /users/{email}: Retrieve user details by email.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+4. Booking (Core Logic)
+POST /bookings: Validates seats -> Atomic Reservation -> Stripe Charge -> Save Booking -> Save Payment.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+GET /bookings/{bookingId}: Retrieve booking receipt and ticket details.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+⚙️ Setup & Installation
+Clone the Repo:
 
-## License
-For open source projects, say how it is licensed.
+Bash
+git clone <repository-url>
+Configure MongoDB: Ensure MongoDB is running on localhost:27017 or update application.properties:
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Properties
+spring.data.mongodb.uri=mongodb://localhost:27017/MovieBookingDB
+Configure Stripe:
+Add your Stripe Secret Key from the Stripe Dashboard:
+
+Properties
+stripe.api.key=sk_test_your_key_here
+Build and Run:
+
+Bash
+mvn clean install
+mvn spring-boot:run
+✅ Example Booking Request
+POST /bookings
+
+JSON
+{
+  "userId": "65b1c...",
+  "showId": "65b1d...",
+  "seatIds": ["A1", "A2"],
+  "paymentToken": "tok_visa"
+}
+Note: Use tok_visa for successful test payments and tok_chargeDeclined to test failures.
